@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Electron–Wave Group Simulation</title>
+<style>
+  :root {
+    --accent: #6ee7b7;
+    --bg1: #0a0f1f;
+    --bg2: #0e1b36;
+    --wave: #1d2e2f;
+    --text: #ffffff;
+  }
+  body.red-theme {
+    --accent: #f87171;
+    --bg1: #1f0a0a;
+    --bg2: #3a0c0c;
+    --wave: #ff5555;
+  }
+
+  body {
+    margin: 0;
+    background: linear-gradient(160deg, var(--bg1) 0%, #000 100%);
+    color: var(--text);
+    font-family: "Segoe UI", sans-serif;
+    overflow-x: hidden;
+    transition: background 0.6s, color 0.6s;
+  }
+
+  h2 {
+    text-align: center;
+    margin: 18px 0 10px;
+    color: var(--accent);
+    text-shadow: 0 0 15px var(--accent);
+    font-size: 2em;
+    letter-spacing: 0.5px;
+    animation: fadeIn 1s ease-in-out;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .controls {
+    margin: 15px auto;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px 18px;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 14px;
+    padding: 12px 18px;
+    backdrop-filter: blur(8px);
+    box-shadow: 0 0 20px rgba(110, 231, 183, 0.12);
+    transition: all 0.5s ease;
+  }
+
+  .controls label { font-size: 13px; color: #dfeff0; }
+  .controls input[type=range] { width: 110px; cursor: pointer; }
+
+  .buttons {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    margin: 12px 0;
+    align-items: center;
+  }
+
+  button, select {
+    background: var(--accent);
+    color: var(--bg1);
+    border: none;
+    border-radius: 10px;
+    padding: 8px 14px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 14px;
+    transition: all 0.22s ease;
+    box-shadow: 0 0 8px rgba(0,0,0,0.12);
+  }
+
+  button:hover, select:hover {
+    transform: scale(1.04);
+    filter: brightness(1.06);
+  }
+
+  #modeBtn {
+    display: block;
+    margin: 16px auto 26px;
+    font-size: 16px;
+    padding: 10px 22px;
+    border-radius: 12px;
+  }
+
+  .main-layout {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 26px;
+    margin-top: 6px;
+  }
+
+  .simulation-container {
+    flex: 2;
+    display: flex;
+    justify-content: center;
+    width: 100%;
+  }
+
+  #waveBox {
+    border: 2px solid var(--accent);
+    border-radius: 18px;
+    box-shadow: 0 0 20px rgba(110, 231, 183, 0.28);
+    width: 90%;
+    max-width: 900px;
+    height: 400px;
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(180deg, var(--bg1) 0%, var(--bg2) 100%);
+    transition: box-shadow 0.4s ease;
+  }
+
+  #waveBox:hover { box-shadow: 0 0 30px rgba(110,231,183,0.35); }
+  #waveCanvas { width: 100%; height: 100%; display: block; }
+
+  .live-box {
+    flex: 1;
+    background: rgba(255,255,255,0.06);
+    border: 2px solid var(--accent);
+    border-radius: 14px;
+    padding: 14px;
+    width: 320px;
+    max-height: 300px; /* shortened */
+    box-shadow: 0 0 18px rgba(110,231,183,0.18);
+    font-size: 14px;
+    line-height: 1.6em;
+    backdrop-filter: blur(8px);
+    text-align: left;
+    animation: fadeIn 1.5s ease-in-out;
+    overflow: auto;
+  }
+  .live-box h3 { color: var(--accent); text-align: center; margin-bottom: 8px; font-size: 1.1em; }
+  .live-box span { color: var(--accent); }
+
+  .explanation-box {
+    background: rgba(255, 255, 255, 0.08);
+    border: 2px solid var(--accent);
+    border-radius: 14px;
+    padding: 16px 18px;
+    width: 90%;
+    max-width: 1000px;
+    font-size: 15px;
+    line-height: 1.6em;
+    text-align: justify;
+    box-shadow: 0 0 16px rgba(110,231,183,0.18);
+    backdrop-filter: blur(8px);
+    color: var(--text);
+    margin: 26px auto 40px;
+    transition: all 0.5s ease-in-out;
+    animation: fadeIn 1s ease-in-out;
+    max-height: 220px; /* shortened */
+    overflow: auto;
+  }
+
+  .highlight { color: var(--accent); font-weight: bold; }
+  .info { position: fixed; bottom: 10px; right: 20px; font-size: 13px; opacity: 0.9; }
+
+  #moreOptions { display: none; margin-top: 8px; text-align: center; }
+
+  #toggleMore {
+    background: transparent;
+    color: var(--accent);
+    font-size: 13px;
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+    padding: 4px 10px;
+    transition: 0.2s;
+  }
+  #toggleMore:hover { background: var(--accent); color: var(--bg1); }
+
+  /* MINI SIMS */
+  .mini-row {
+    display: flex;
+    gap: 18px;
+    justify-content: center;
+    width: 90%;
+    max-width: 900px;
+    margin: 18px auto 0;
+  }
+  .mini-box {
+    background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+    border: 2px solid var(--accent);
+    border-radius: 12px;
+    width: 48%;
+    height: 220px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    box-shadow: 0 0 14px rgba(110,231,183,0.12);
+    overflow: hidden;
+  }
+  .mini-title {
+    font-weight: 700;
+    color: var(--accent);
+    margin-bottom: 6px;
+  }
+  .mini-canvas {
+    width: 100%;
+    height: calc(100% - 30px);
+    border-radius: 8px;
+    background: rgba(0,0,0,0.02);
+  }
+
+  @media (max-width: 1024px) {
+    .main-layout { flex-direction: column; align-items: center; }
+    .live-box { max-width: 90%; text-align: center; }
+    .buttons { flex-direction: column; gap: 8px; }
+    .mini-row { flex-direction: column; gap: 12px; }
+    .mini-box { width: 95%; height: 200px; }
+  }
+</style>
+</head>
+<body class="red-theme">
+<h2 id="title">Electron Motion Along Wave</h2>
+
+<div class="controls">
+  <label>Amplitude: <span id="ampVal">50</span></label>
+  <input type="range" id="amp" min="10" max="100" value="50">
+  <label>Frequency: <span id="freqVal">0.08</span></label>
+  <input type="range" id="freq" min="0.02" max="0.15" step="0.01" value="0.08">
+  <label>Phase Velocity: <span id="vpVal">1.5</span></label>
+  <input type="range" id="vp" min="0.5" max="5" step="0.1" value="1.5">
+  <label>Group Velocity: <span id="vgVal">1.4</span></label>
+  <input type="range" id="vg" min="0.2" max="3.0" step="0.1" value="1.4">
+
+  <div id="moreOptions">
+    <label>Wave Speed: <span id="waveSpeedVal">1.7</span></label>
+    <input type="range" id="waveSpeed" min="0.5" max="5" step="0.1" value="1.7">
+  </div>
+  <button id="toggleMore">More Options ▼</button>
+</div>
+
+<div class="buttons">
+  <button id="startBtn">Start</button>
+  <button id="stopBtn">Stop</button>
+  <button id="resetBtn">Reset</button>
+
+  <!-- Medium selector placed right next to Reset button -->
+  <select id="mediumSelect" title="Select medium (visible in 'Electron Moving Along Wave' mode)">
+    <option value="air" selected>Air</option>
+    <option value="water">Water</option>
+    <option value="glass">Glass</option>
+  </select>
+</div>
+
+<button id="modeBtn">E Moving with Wave Group</button>
+
+<div class="main-layout">
+  <div class="simulation-container">
+    <div id="waveBox">
+      <canvas id="waveCanvas"></canvas>
+    </div>
+  </div>
+
+  <div class="live-box" id="liveCalc">
+    <h3>Live Calculations</h3>
+    <div>Amplitude (A): <span id="liveAmp">50</span></div>
+    <div>Frequency (f): <span id="liveFreq">0.08</span></div>
+    <div>Phase Velocity (v<sub>p</sub>): <span id="liveVp">1.5</span></div>
+    <div>Group Velocity (v<sub>g</sub>): <span id="liveVg">1.4</span></div>
+    <div>Wave Speed (v<sub>w</sub>): <span id="liveWs">1.7</span></div>
+    <hr>
+    <div><strong>Relations & Calculations:</strong></div>
+    <div id="calcDetails"></div>
+  </div>
+</div>
+
+<!-- MINI SIMULATIONS (side-by-side) -->
+<div class="mini-row">
+  <div class="mini-box" id="miniPhaseBox">
+    <div class="mini-title">Phase Velocity (crests)</div>
+    <canvas id="miniPhase" class="mini-canvas"></canvas>
+  </div>
+  <div class="mini-box" id="miniGroupBox">
+    <div class="mini-title">Group Velocity (envelope)</div>
+    <canvas id="miniGroup" class="mini-canvas"></canvas>
+  </div>
+</div>
+
+<div class="explanation-box" id="explainBox">
+  <strong class="highlight">Wave Relationship & Formulas</strong><br><br>
+  The electron moves along the <span class="highlight">wave group</span> with velocity v<sub>g</sub>,
+  while the individual crests of the wave move with <span class="highlight">phase velocity</span> v<sub>p</sub>.<br><br>
+  - <b>v<sub>p</sub> = ω / k</b> → velocity of wave crests.<br>
+  - <b>v<sub>g</sub> = dω / dk</b> → velocity of energy/envelope.<br>
+  - Increasing <b>wave speed</b> causes the wave crests to move ahead of the electron, showing the physical separation between <b>phase</b> and <b>group motion</b>.
+</div>
+
+<div class="info">Created by <strong>Abhishek Kapoor (K25EG)</strong></div>
+
+<script>
+/* ------------------------------
+   Core elements & initial state
+   ------------------------------ */
+const mainCanvas = document.getElementById('waveCanvas');
+const ctx = mainCanvas.getContext('2d');
+
+const miniPhaseCanvas = document.getElementById('miniPhase');
+const ctxPhase = miniPhaseCanvas.getContext('2d');
+
+const miniGroupCanvas = document.getElementById('miniGroup');
+const ctxGroup = miniGroupCanvas.getContext('2d');
+
+function fitCanvas(canvas, containerId) {
+  const container = document.getElementById(containerId);
+  canvas.width = container.clientWidth - 4; // small padding
+  canvas.height = container.clientHeight - 6;
+}
+fitCanvas(mainCanvas, 'waveBox');
+fitCanvas(miniPhaseCanvas, 'miniPhaseBox');
+fitCanvas(miniGroupCanvas, 'miniGroupBox');
+
+let W = mainCanvas.width;
+let H = mainCanvas.height;
+
+let amp = 50, freq = 0.08, vp = 1.5, vg = 1.4, waveSpeed = 1.7;
+let t = 0, running = false, mode = "wave"; // default to "wave" (electron moving along wave)
+const mediumSelect = document.getElementById('mediumSelect');
+
+const sliders = {
+  amp: document.getElementById('amp'),
+  freq: document.getElementById('freq'),
+  vp: document.getElementById('vp'),
+  vg: document.getElementById('vg'),
+  waveSpeed: document.getElementById('waveSpeed')
+};
+
+const labels = {
+  amp: document.getElementById('ampVal'),
+  freq: document.getElementById('freqVal'),
+  vp: document.getElementById('vpVal'),
+  vg: document.getElementById('vgVal'),
+  waveSpeed: document.getElementById('waveSpeedVal')
+};
+
+const live = {
+  amp: document.getElementById('liveAmp'),
+  freq: document.getElementById('liveFreq'),
+  vp: document.getElementById('liveVp'),
+  vg: document.getElementById('liveVg'),
+  ws: document.getElementById('liveWs'),
+  calcDetails: document.getElementById('calcDetails'),
+  explainBox: document.getElementById('explainBox')
+};
+
+/* ------------------------------
+   Mediums and their waveSpeed + color mapping
+   ------------------------------ */
+const mediums = {
+  air: { speed: 1.7, name: 'Air', color: '#60d6ff' },   // cyan
+  water: { speed: 1.4, name: 'Water', color: '#3b82f6' }, // blue
+  glass: { speed: 1.2, name: 'Glass', color: '#a78bfa' }  // violet
+};
+
+/* Initialize CSS wave color based on medium */
+function applyWaveColor(color) {
+  document.documentElement.style.setProperty('--wave', color);
+}
+
+/* ------------------------------
+   Initialize slider behavior
+   ------------------------------ */
+for (let key in sliders) {
+  if (!sliders[key]) continue;
+  sliders[key].oninput = () => {
+    switch (key) {
+      case 'amp': amp = +sliders[key].value; break;
+      case 'freq': freq = +sliders[key].value; break;
+      case 'vp': vp = +sliders[key].value; break;
+      case 'vg': vg = +sliders[key].value; break;
+      case 'waveSpeed': waveSpeed = +sliders[key].value; break;
+    }
+    labels[key].textContent = sliders[key].value;
+    updateLive();
+    updateExplanation();
+  };
+}
+
+/* ------------------------------
+   Buttons & mode toggle
+   ------------------------------ */
+document.getElementById('startBtn').onclick = () => running = true;
+document.getElementById('stopBtn').onclick = () => running = false;
+document.getElementById('resetBtn').onclick = () => {
+  // reset to defaults BUT keep medium selection unchanged
+  amp = 50; freq = 0.08; vp = 1.5; vg = 1.4;
+  // waveSpeed should reflect current medium (do not overwrite mediumSelect)
+  const curMed = mediumSelect.value;
+  if (mediums[curMed]) {
+    waveSpeed = mediums[curMed].speed;
+  } else {
+    waveSpeed = 1.7;
+  }
+
+  sliders.amp.value = amp;
+  sliders.freq.value = freq;
+  sliders.vp.value = vp;
+  sliders.vg.value = vg;
+  if (sliders.waveSpeed) {
+    sliders.waveSpeed.value = waveSpeed;
+  }
+
+  labels.amp.textContent = amp;
+  labels.freq.textContent = freq;
+  labels.vp.textContent = vp;
+  labels.vg.textContent = vg;
+  labels.waveSpeed.textContent = waveSpeed;
+
+  t = 0;
+  updateWaveColorFromMedium(); // ensure color matches medium
+  updateLive();
+  updateExplanation();
+  drawWave();
+};
+
+document.getElementById('toggleMore').onclick = () => {
+  const more = document.getElementById('moreOptions');
+  if (more.style.display === "none" || more.style.display === "") {
+    more.style.display = "block";
+    toggleMore.textContent = "Less Options ▲";
+  } else {
+    more.style.display = "none";
+    toggleMore.textContent = "More Options ▼";
+  }
+};
+
+document.getElementById('modeBtn').onclick = () => {
+  const title = document.getElementById('title');
+  const modeBtn = document.getElementById('modeBtn');
+  if (mode === "wave") {
+    // switch to group mode
+    mode = "group";
+    document.body.classList.remove('red-theme');
+    title.textContent = "Electron Motion Along Wave Group";
+    modeBtn.textContent = "E Moving with Wave";
+    mediumSelect.style.display = 'none';
+  } else {
+    // switch to wave mode
+    mode = "wave";
+    document.body.classList.add('red-theme');
+    title.textContent = "Electron Motion Along Wave";
+    modeBtn.textContent = "E Moving with Wave Group";
+    mediumSelect.style.display = 'inline-block';
+  }
+  updateLive();
+  updateExplanation();
+};
+
+/* ------------------------------
+   Medium selector behavior
+   Only applies in 'wave' mode.
+   ------------------------------ */
+function updateWaveColorFromMedium() {
+  const sel = mediumSelect.value;
+  if (!mediums[sel]) return;
+  waveSpeed = mediums[sel].speed;
+  applyWaveColor(mediums[sel].color);
+  // reflect in slider & label
+  if (sliders.waveSpeed) {
+    sliders.waveSpeed.value = waveSpeed;
+    labels.waveSpeed.textContent = waveSpeed;
+  }
+  updateLive();
+  updateExplanation();
+  drawWave();
+}
+mediumSelect.onchange = updateWaveColorFromMedium;
+
+/* ------------------------------
+   Drawing & animation (main)
+   ------------------------------ */
+
+  
+function drawWave() {
+  // ensure canvas sizing
+  fitCanvas(mainCanvas, 'waveBox');
+  W = mainCanvas.width;
+  H = mainCanvas.height;
+
+  ctx.clearRect(0, 0, W, H);
+  const mid = H / 2;
+
+  const groupCenterSpeed = (mode === "wave") ? waveSpeed : vg;
+  const envelopeCenter = (W / 2 + (groupCenterSpeed * t * 60) % (W * 2)) - W;
+  const phaseShift = (t * vp * 12) % (Math.PI * 2);
+
+  ctx.lineWidth = 2;
+
+  // choose stroke color depending on mode & current medium
+  if (mode === "group") {
+    const grad = ctx.createLinearGradient(0, 0, W, 0);
+    grad.addColorStop(0, "#6ee7b7");
+    grad.addColorStop(0.25, "#60a5fa");
+    grad.addColorStop(0.5, "#a78bfa");
+    grad.addColorStop(0.75, "#f472b6");
+    grad.addColorStop(1, "#facc15");
+    ctx.strokeStyle = grad;
+  } else {
+    // use CSS variable --wave for color
+    ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--wave').trim() || '#1d2e2f';
+  }
+
+  ctx.beginPath();
+  for (let x = 0; x < W; x++) {
+    const envelope = Math.exp(-0.00004 * Math.pow(x - envelopeCenter, 2));
+    const y = mid + amp * envelope * Math.sin((x * freq) - phaseShift);
+    if (x === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+
+  // electron position — depends on mode:
+  // wave mode -> electron follows phase velocity (vp)
+  // group mode -> electron follows group velocity (vg)
+  const electronSpeed = (mode === "wave") ? vp : vg;
+  const electronX = ((W / 2 + electronSpeed * t * 60) % (W * 2)) - W;
+  ctx.fillStyle = (mode === "wave") ? "#ffdd57" : "#ff4444"; // different color for clarity
+  ctx.beginPath();
+  ctx.arc(electronX, mid, 8, 0, 2 * Math.PI);
+  ctx.fill();
+  ctx.font = "14px Segoe UI";
+  ctx.fillStyle = "#fff";
+  ctx.fillText("Electron", electronX - 28, mid - 16);
+}
+
+/* ------------------------------
+   Mini-simulations
+   - Phase: crests move (no envelope)
+   - Group: envelope moves with vg, crests inside move with vp
+   ------------------------------ */
+function drawMiniPhase() {
+  fitCanvas(miniPhaseCanvas, 'miniPhaseBox');
+  const w = miniPhaseCanvas.width;
+  const h = miniPhaseCanvas.height;
+  ctxPhase.clearRect(0, 0, w, h);
+  const mid = h / 2;
+  ctxPhase.lineWidth = 2;
+  ctxPhase.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--wave').trim() || '#1d2e2f';
+
+  // simple phase-only wave: no envelope, translate with vp
+  const phaseShift = (t * vp * 12) % (Math.PI * 2);
+  ctxPhase.beginPath();
+  for (let x = 0; x < w; x++) {
+    const y = mid + (amp * 0.5) * Math.sin((x * freq) - phaseShift); // smaller amplitude
+    if (x === 0) ctxPhase.moveTo(x, y);
+    else ctxPhase.lineTo(x, y);
+  }
+  ctxPhase.stroke();
+
+  // small marker (no envelope) showing a crest passing
+  const markerX = ((w / 2 + vp * t * 40) % (w * 2)) - w;
+  ctxPhase.fillStyle = '#fff';
+  ctxPhase.beginPath();
+  ctxPhase.arc(markerX, mid - (amp * 0.5 * Math.sin((markerX * freq) - phaseShift)), 4, 0, 2 * Math.PI);
+  ctxPhase.fill();
+}
+
+function drawMiniGroup() {
+  fitCanvas(miniGroupCanvas, 'miniGroupBox');
+  const w = miniGroupCanvas.width;
+  const h = miniGroupCanvas.height;
+  ctxGroup.clearRect(0, 0, w, h);
+  const mid = h / 2;
+
+  // envelope center moves with vg
+  const envelopeCenter = (w / 2 + (vg * t * 60) % (w * 2)) - w;
+  const phaseShift = (t * vp * 12) % (Math.PI * 2);
+
+  // draw envelope (semi-transparent)
+  ctxGroup.fillStyle = 'rgba(110,231,183,0.08)';
+  ctxGroup.beginPath();
+  for (let x = 0; x < w; x++) {
+    const envelope = Math.exp(-0.00008 * Math.pow(x - envelopeCenter, 2));
+    const y = mid + (amp * 0.45) * envelope * Math.sin((x * freq) - phaseShift);
+    if (x === 0) ctxGroup.moveTo(x, y);
+    else ctxGroup.lineTo(x, y);
+  }
+  ctxGroup.closePath();
+  ctxGroup.fill();
+
+  // draw crests inside envelope
+  ctxGroup.lineWidth = 1.8;
+  ctxGroup.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--wave').trim() || '#1d2e2f';
+  ctxGroup.beginPath();
+  for (let x = 0; x < w; x++) {
+    const envelope = Math.exp(-0.00008 * Math.pow(x - envelopeCenter, 2));
+    const y = mid + (amp * 0.45) * envelope * Math.sin((x * freq) - phaseShift);
+    if (x === 0) ctxGroup.moveTo(x, y);
+    else ctxGroup.lineTo(x, y);
+  }
+  ctxGroup.stroke();
+
+  // marker showing envelope center
+  ctxGroup.fillStyle = '#ffdd57';
+  ctxGroup.beginPath();
+  ctxGroup.arc(envelopeCenter, mid, 5, 0, 2 * Math.PI);
+  ctxGroup.fill();
+}
+
+/* ------------------------------
+   Live calculation & explanation updates
+   ------------------------------ */
+function updateLive() {
+  live.amp.textContent = amp;
+  live.freq.textContent = freq.toFixed(3);
+  live.vp.textContent = vp.toFixed(2);
+  live.vg.textContent = vg.toFixed(2);
+  live.ws.textContent = waveSpeed.toFixed(2);
+
+  const omega = 2 * Math.PI * freq;                 // ω = 2πf
+  const k = vp !== 0 ? (omega / vp) : 0;            // k = ω / v_p  (rearranged)
+  const omega_s = omega.toFixed(4);
+  const k_s = k.toFixed(4);
+  const vp_calc = (k !== 0) ? (omega / k).toFixed(4) : '—';
+
+  const details = `
+    ω = 2πf = 2π × ${freq.toFixed(4)} = ${omega_s} (rad/s) <br>
+    k = ω / vₚ = ${omega_s} / ${vp.toFixed(4)} = ${k_s} (1/units) <br>
+    vₚ = ω / k = ${omega_s} / ${k_s} = ${vp_calc} (units/s) <br>
+    v_g (given) = ${vg.toFixed(4)} (units/s) <br>
+    v_w (medium speed) = ${waveSpeed.toFixed(4)} (units/s) — selected medium: <strong>${mediumSelect.value.toUpperCase()}</strong><br>
+    Relationship: v = f × λ → λ = v / f (wavelength changes if v changes while f constant) <br>
+  `;
+  live.calcDetails.innerHTML = details;
+}
+
+function updateExplanation() {
+  const medium = mediumSelect.value;
+  const medText = mediums[medium] ? mediums[medium].name : medium;
+  const explanation = `
+    <strong class="highlight">Overview of what's happening</strong><br><br>
+    You are viewing the <b>Electron Motion Along Wave</b> simulation. The page draws a sinusoidal wave with a Gaussian envelope (a "wave group") and an electron marker that moves relative to the wave/group.<br><br>
+
+    <strong>Parameters in use</strong>: Amplitude A = <b>${amp}</b>, Frequency f = <b>${freq}</b>, Phase velocity v<sub>p</sub> = <b>${vp}</b>, Group velocity v<sub>g</sub> = <b>${vg}</b>, Wave speed v<sub>w</sub> = <b>${waveSpeed}</b>.<br><br>
+
+    <strong>What the medium selector does</strong>: When you are in <b>Electron Moving Along Wave</b> mode (this is the mode you opened in), the medium selector is visible and active. Choosing <b>${medText}</b> sets the <b>wave speed (v<sub>w</sub>)</b> to the chosen medium's value (${Object.keys(mediums).map(k => `${mediums[k].name}: ${mediums[k].speed}`).join(', ')}). The Wave Speed slider is updated automatically to reflect this value and the wave color changes to visually indicate the medium.<br><br>
+
+    <strong>Physical effect explained</strong>: Frequency <em>f</em> remains constant when a wave enters a different medium, but speed <em>v</em> changes. According to <b>v = f × λ</b>, the wavelength <em>λ</em> must change (λ = v / f). Therefore when you switch from Air → Glass, the wave speed decreases and the wavelength shortens; crests move closer together while the number of crests passing a point per second (frequency) stays the same.<br><br>
+
+    <strong>Phase vs Group</strong>: Individual crests move at phase velocity <b>v<sub>p</sub></b> (v<sub>p</sub> = ω/k). The energy envelope (the group) travels at group velocity <b>v<sub>g</sub></b>. In <b>wave mode</b> the electron follows the <b>phase velocity (v<sub>p</sub>)</b>, so you can see crests pass under it; in <b>group mode</b> the electron follows the <b>group velocity (v<sub>g</sub>)</b> and sits on the envelope. This visually demonstrates how phase and group motion differ.<br><br>
+
+    <strong>Live calculations</strong> (shown on the left) display the formulas, numeric substitutions, and results in real time. Any change to amplitude, frequency, v<sub>p</sub>, v<sub>g</sub>, or the medium immediately updates both the calculations and the explanation above so you can see the math and the visual effect together.
+  `;
+  live.explainBox.innerHTML = explanation;
+}
+
+/* ------------------------------
+   Animation loop
+   ------------------------------ */
+function animate() {
+  if (running) t += 0.03;
+  drawWave();
+  drawMiniPhase();
+  drawMiniGroup();
+  updateLive();
+  requestAnimationFrame(animate);
+}
+animate();
+
+/* ------------------------------
+   Keep canvas sized to container
+   ------------------------------ */
+window.onresize = () => {
+  fitCanvas(mainCanvas, 'waveBox');
+  fitCanvas(miniPhaseCanvas, 'miniPhaseBox');
+  fitCanvas(miniGroupCanvas, 'miniGroupBox');
+  W = mainCanvas.width;
+  H = mainCanvas.height;
+  drawWave();
+  drawMiniPhase();
+  drawMiniGroup();
+};
+
+/* ------------------------------
+   Initial visibility & setup
+   ------------------------------ */
+function init() {
+  // set medium color & speed to default selected medium
+  updateWaveColorFromMedium();
+
+  // show medium selector only in 'wave' mode (default)
+  mediumSelect.style.display = (mode === 'wave') ? 'inline-block' : 'none';
+  updateLive();
+  updateExplanation();
+  drawWave();
+  drawMiniPhase();
+  drawMiniGroup();
+}
+init();
+</script>
+</body>
+</html>
